@@ -15,12 +15,18 @@ CANDIDATES = [
     "JAWADU SONKO",
 ]
 
-def main():
+def scrape_votes():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(URL, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(5000)
+        page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+        
+        # Wait up to 30 seconds until a number followed by "votes" actually appears on the page
+        page.wait_for_function(
+            "() => /\\d[\\d,]*\\s*votes/i.test(document.body.innerText)",
+            timeout=30000
+        )
+        page.wait_for_timeout(1500)
         text = page.inner_text("body")
         browser.close()
 
@@ -36,6 +42,17 @@ def main():
                     if match:
                         results[name] = int(match.group(1).replace(",", ""))
                         break
+    return results
+
+def main():
+    results = {}
+    for attempt in range(3):  # Retries up to 3 times if the site is temporarily slow
+        try:
+            results = scrape_votes()
+            if len(results) == len(CANDIDATES):
+                break
+        except Exception:
+            pass
 
     timestamp = datetime.now(ZoneInfo("Africa/Kampala")).strftime("%Y-%m-%d %H:%M:%S EAT")
     file_exists = os.path.isfile(CSV_FILE)
