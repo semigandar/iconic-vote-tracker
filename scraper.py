@@ -1,4 +1,5 @@
 import csv
+import json
 import os
 import re
 from datetime import datetime
@@ -15,20 +16,29 @@ CANDIDATES = [
     "JAWADU SONKO",
 ]
 
-def scrape_votes():
+def main():
+    api_dumps = []
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            viewport={"width": 1280, "height": 800},
-        )
-        page = context.new_page()
-        page.goto(URL, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(6000)
+        page = browser.new_page()
+
+        # Capture any JSON API responses in the background
+        def handle_response(response):
+            try:
+                if "json" in response.headers.get("content-type", ""):
+                    api_dumps.append(response.text())
+            except Exception:
+                pass
+
+        page.on("response", handle_response)
+        page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_timeout(12000)  # Wait 12 full seconds for slow API responses
         text = page.inner_text("body")
         browser.close()
 
-    print("PAGE TEXT SAMPLE:", text[:500].replace("\n", " | "))
+    print("--- VISIBLE PAGE TEXT ---")
+    print(text[:1000])
 
     results = {}
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -42,15 +52,21 @@ def scrape_votes():
                     if match:
                         results[name] = int(match.group(1).replace(",", ""))
                         break
-    return results
 
-def main():
-    results = {}
-    for attempt in range(3):
-        results = scrape_votes()
-        print(f"Attempt {attempt + 1} results:", results)
-        if len(results) == len(CANDIDATES):
-            break
+    # Fallback: search raw JSON API data if visible text didn't render in time
+    if len(results) < len(CANDIDATES):
+        combined_json = "\n".join(api_dumps)
+        for name in CANDIDATES:
+            if name not in results:
+                m = re.search(
+                    re.escape(name) + r'.{0,300}?"(?:votes|vote_count|total_votes|count)"\s*:\s*(\d+)',
+                    combined_json,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if m:
+                    results[name] = int(m.group(1))
+
+    print("--- EXTRACTED RESULTS ---", results)
 
     timestamp = datetime.now(ZoneInfo("Africa/Kampala")).strftime("%Y-%m-%d %H:%M:%S EAT")
     file_exists = os.path.isfile(CSV_FILE)
