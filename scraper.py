@@ -4,8 +4,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from playwright.sync_api import sync_playwright
-
-URL = "https://iconicawards.pro"
+URL = "https://vote.iconicawards.pro/categories/iconic-awards-2026/conic-biker-of-the-year"
 CSV_FILE = "votes.csv"
 
 CANDIDATES = [
