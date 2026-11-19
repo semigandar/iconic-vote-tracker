@@ -1,10 +1,11 @@
 import csv
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from playwright.sync_api import sync_playwright
 
-URL = "https://vote.iconicawards.pro/categories/iconic-awards-2026/conic-biker-of-the-year"
+URL = "https://iconicawards.pro"
 CSV_FILE = "votes.csv"
 
 CANDIDATES = [
@@ -18,9 +19,8 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(URL, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_selector("text=/votes/i", timeout=30000)
-        page.wait_for_timeout(2000)
+        page.goto(URL, wait_until="networkidle", timeout=60000)
+        page.wait_for_timeout(5000)
         text = page.inner_text("body")
         browser.close()
 
@@ -37,13 +37,13 @@ def main():
                         results[name] = int(match.group(1).replace(",", ""))
                         break
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(ZoneInfo("Africa/Kampala")).strftime("%Y-%m-%d %H:%M:%S EAT")
     file_exists = os.path.isfile(CSV_FILE)
 
     with open(CSV_FILE, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
-            writer.writerow(["Timestamp (UTC)"] + CANDIDATES)
+            writer.writerow(["Timestamp (EAT)"] + CANDIDATES)
         row = [timestamp] + [results.get(c, "") for c in CANDIDATES]
         writer.writerow(row)
 
