@@ -20,17 +20,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Playwright and Chromium
+      - name: Install dependencies
         run: |
-          pip install playwright
+          pip install playwright pandas matplotlib
           playwright install chromium
 
-      - name: Run vote scraper
-        run: python scraper.py
+      - name: Run vote scraper and generate charts
+        run: |
+          python scraper.py
+          python plot.py
 
-      - name: Commit updated CSV
+      - name: Commit updated CSV and charts
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@://github.com"
-          git add votes.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update vote counts" && git push)
+          git add votes.csv total_votes.png vote_spikes.png
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update vote counts and charts" && git push)
