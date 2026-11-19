@@ -4,7 +4,7 @@ import re
 from datetime import datetime, timezone
 from playwright.sync_api import sync_playwright
 
-URL = "https://iconicawards.pro"
+URL = "URL = "https://vote.iconicawards.pro/categories/iconic-awards-2026/conic-biker-of-the-year"
 CSV_FILE = "votes.csv"
 
 CANDIDATES = [
@@ -18,8 +18,9 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(URL, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(4000)
+        page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_selector("text=/votes/i", timeout=30000)
+        page.wait_for_timeout(2000)
         text = page.inner_text("body")
         browser.close()
 
@@ -30,7 +31,7 @@ def main():
         upper_line = line.upper()
         for name in CANDIDATES:
             if name in upper_line:
-                for lookahead in lines[i + 1 : i + 6]:
+                for lookahead in lines[i : i + 8]:
                     match = re.search(r"([\d,]+)\s*votes?", lookahead, re.IGNORECASE)
                     if match:
                         results[name] = int(match.group(1).replace(",", ""))
